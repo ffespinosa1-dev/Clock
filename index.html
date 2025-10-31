@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Analog Clock</title>
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#000000">
+
+  <style>
+    html, body { margin:0; padding:0; height:100%; background:#000; color:#fff; font-family:-apple-system,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif }
+    .app { display:grid; grid-template-rows:auto 1fr auto; height:100dvh; }
+    header, footer { display:flex; align-items:center; gap:.75rem; padding:.75rem 1rem; background:rgba(255,255,255,.04); backdrop-filter:blur(8px) }
+    header h1 { font-size:1rem; margin:0; color:rgba(255,255,255,.82) }
+    .controls { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap }
+    button, select, input[type="checkbox"] { font:inherit; color:#fff; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:.35rem .75rem }
+    #canvas { width:100%; height:100%; display:block; }
+    .spacer { flex:1 }
+    .checkbox { display:inline-flex; gap:.35rem; align-items:center; font-size:.9rem }
+    #digital { font-variant-numeric: tabular-nums; color:rgba(255,255,255,.75) }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Analog Clock</h1>
+    <div class="controls">
+      <label class="checkbox"><input id="seconds" type="checkbox" checked><span>Show seconds</span></label>
+      <label class="checkbox"><input id="sweep" type="checkbox" checked><span>Sweep seconds</span></label>
+      <label class="checkbox"><input id="ticks" type="checkbox" checked><span>Tick marks</span></label>
+      <select id="face">
+        <option value="classic" selected>Classic</option>
+        <option value="minimal">Minimal</option>
+        <option value="bold">Bold</option>
+      </select>
+      <button id="fullscreen">Fullscreen</button>
+    </div>
+  </header>
+
+  <canvas id="canvas"></canvas>
+
+  <footer>
+    <div class="spacer"></div>
+    <small id="digital">--:--:--</small>
+  </footer>
+</div>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+}
+
+const fullscreenBtn = document.getElementById('fullscreen');
+fullscreenBtn.addEventListener('click', async () => {
+  const el = document.documentElement;
+  if (!document.fullscreenElement) await el.requestFullscreen?.();
+  else await document.exitFullscreen?.();
+});
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const showSeconds = document.getElementById('seconds');
+const sweep = document.getElementById('sweep');
+const ticks = document.getElementById('ticks');
+const face = document.getElementById('face');
+const digital = document.getElementById('digital');
+
+function resizeCanvas() {
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas, { passive: true });
+resizeCanvas();
+
+function draw() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+  const size = Math.min(w, h), cx = w / 2, cy = h / 2, r = Math.floor(size * 0.45);
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // face ring
+  if (face.value === 'classic') {
+    const grad = ctx.createRadialGradient(0, 0, r*0.1, 0, 0, r*1.05);
+    grad.addColorStop(0, 'rgba(255,255,255,0.04)');
+    grad.addColorStop(1, 'rgba(255,255,255,0.00)');
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0,0,r*1.05,0,Math.PI*2); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.20)';
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke();
+  } else if (face.value === 'minimal') {
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke();
+  } else {
+    ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke();
+  }
+
+  // tick marks
+  if (ticks.checked) {
+    for (let i = 0; i < 60; i++) {
+      const ang = (Math.PI * 2) * (i / 60), isHour = i % 5 === 0;
+      const len = isHour ? r*0.12 : r*0.06;
+      ctx.lineWidth = isHour ? 3 : 1.5;
+      ctx.strokeStyle = 'rgba(255,255,255,' + (isHour ? '0.9' : '0.5') + ')';
+      const x1 = Math.cos(ang) * (r - len), y1 = Math.sin(ang) * (r - len);
+      const x2 = Math.cos(ang) * (r - 2),   y2 = Math.sin(ang) * (r - 2);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    }
+  }
+
+  // get device local time each frame
+  const now = new Date();
+  const ms = now.getMilliseconds();
+  const sec = now.getSeconds() + (sweep.checked ? ms/1000 : 0);
+  const min = now.getMinutes() + sec / 60;
+  const hr  = (now.getHours() % 12) + min / 60;
+
+  // update digital readout (for verification)
+  digital.textContent = now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+  // hour hand
+  ctx.save();
+  ctx.rotate((Math.PI * 2) * (hr / 12));
+  ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 5.5;
+  ctx.beginPath(); ctx.moveTo(-r*0.10, 0); ctx.lineTo(r*0.55, 0); ctx.stroke();
+  ctx.restore();
+
+  // minute hand
+  ctx.save();
+  ctx.rotate((Math.PI * 2) * (min / 60));
+  ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(-r*0.14, 0); ctx.lineTo(r*0.78, 0); ctx.stroke();
+  ctx.restore();
+
+  // second hand
+  if (showSeconds.checked) {
+    ctx.save();
+    ctx.rotate((Math.PI * 2) * (sec / 60));
+    ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(255,80,80,0.95)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-r*0.18, 0); ctx.lineTo(r*0.85, 0); ctx.stroke();
+    ctx.restore();
+  }
+
+  // center cap
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0,0,3.5,0,Math.PI*2); ctx.fill();
+
+  ctx.restore();
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
