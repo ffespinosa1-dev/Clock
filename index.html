@@ -103,10 +103,11 @@ function draw() {
     ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke();
   }
 
-  // tick marks
+  // tick marks (rotate by -90° so zero is at 12 o'clock)
   if (ticks.checked) {
     for (let i = 0; i < 60; i++) {
-      const ang = (Math.PI * 2) * (i / 60), isHour = i % 5 === 0;
+      const ang = (Math.PI * 2) * (i / 60) - Math.PI / 2;
+      const isHour = i % 5 === 0;
       const len = isHour ? r*0.12 : r*0.06;
       ctx.lineWidth = isHour ? 3 : 1.5;
       ctx.strokeStyle = 'rgba(255,255,255,' + (isHour ? '0.9' : '0.5') + ')';
@@ -116,34 +117,34 @@ function draw() {
     }
   }
 
-  // get device local time each frame
+  // device local time
   const now = new Date();
   const ms = now.getMilliseconds();
   const sec = now.getSeconds() + (sweep.checked ? ms/1000 : 0);
   const min = now.getMinutes() + sec / 60;
   const hr  = (now.getHours() % 12) + min / 60;
 
-  // update digital readout (for verification)
+  // update digital readout for verification
   digital.textContent = now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
 
-  // hour hand
+  // hour hand (rotate -90°)
   ctx.save();
-  ctx.rotate((Math.PI * 2) * (hr / 12));
+  ctx.rotate((Math.PI * 2) * (hr / 12) - Math.PI / 2);
   ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 5.5;
   ctx.beginPath(); ctx.moveTo(-r*0.10, 0); ctx.lineTo(r*0.55, 0); ctx.stroke();
   ctx.restore();
 
-  // minute hand
+  // minute hand (rotate -90°)
   ctx.save();
-  ctx.rotate((Math.PI * 2) * (min / 60));
+  ctx.rotate((Math.PI * 2) * (min / 60) - Math.PI / 2);
   ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 4;
   ctx.beginPath(); ctx.moveTo(-r*0.14, 0); ctx.lineTo(r*0.78, 0); ctx.stroke();
   ctx.restore();
 
-  // second hand
+  // second hand (rotate -90°)
   if (showSeconds.checked) {
     ctx.save();
-    ctx.rotate((Math.PI * 2) * (sec / 60));
+    ctx.rotate((Math.PI * 2) * (sec / 60) - Math.PI / 2);
     ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(255,80,80,0.95)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(-r*0.18, 0); ctx.lineTo(r*0.85, 0); ctx.stroke();
     ctx.restore();

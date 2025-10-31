@@ -1,5 +1,5 @@
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open('analog-clock-v2').then(cache => {
+  e.waitUntil(caches.open('analog-clock-v3').then(cache => {
     return cache.addAll([
       './',
       './index.html',
@@ -12,7 +12,5 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  e.respondWith(
-    caches.match(e.request).then(resp => resp || fetch(e.request))
-  );
+  e.respondWith(caches.match(e.request).then(resp => resp || fetch(e.request)));
 });
